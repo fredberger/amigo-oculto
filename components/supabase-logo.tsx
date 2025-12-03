@@ -85,7 +85,7 @@ export function SupabaseLogo() {
             width="113.85"
             height="21.8943"
             fill="currentColor"
-            transform="translate(0.922119 0.456161)"
+            transform="tranneutral(0.922119 0.456161)"
           />
         </clipPath>
         <clipPath id="clip1_4671_51136">
@@ -93,7 +93,7 @@ export function SupabaseLogo() {
             width="21.3592"
             height="21.8943"
             fill="currentColor"
-            transform="translate(0.919006 0.497101)"
+            transform="tranneutral(0.919006 0.497101)"
           />
         </clipPath>
       </defs>

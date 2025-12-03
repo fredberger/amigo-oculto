@@ -1,110 +1,156 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 
-export function LoginForm({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+const STORAGE_KEY = "amigo_oculto_emails";
+
+export function LoginForm() {
+  const supabase = createClient();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [sent, setSent] = useState(false);
+  const [lastSentEmail, setLastSentEmail] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [savedEmails, setSavedEmails] = useState<string[]>([]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
+  // Carrega histórico do localStorage ao montar
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/protected");
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setSavedEmails(parsed);
+      }
+    } catch {
+      // ignora erros de parse
     }
-  };
+  }, []);
+
+  function saveEmailToHistory(newEmail: string) {
+    if (typeof window === "undefined") return;
+
+    try {
+      const normalized = newEmail.trim().toLowerCase();
+      if (!normalized) return;
+
+      const current = new Set(
+        savedEmails.map((e) => e.trim().toLowerCase())
+      );
+      current.add(normalized);
+
+      const updated = Array.from(current).slice(0, 5); // no máximo 5 emails
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setSavedEmails(updated);
+    } catch {
+      // ignora erro de localStorage
+    }
+  }
+
+  async function sendMagicLink(targetEmail: string) {
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: targetEmail,
+      options: {
+        emailRedirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/`
+            : undefined,
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setSent(true);
+      setLastSentEmail(targetEmail);
+      saveEmailToHistory(targetEmail);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) return;
+    await sendMagicLink(email);
+  }
+
+  async function handleQuickLogin(targetEmail: string) {
+    if (loading) return;
+    await sendMagicLink(targetEmail);
+  }
+
+  if (sent) {
+    return (
+      <div className="space-y-2 text-center">
+        <p className="text-sm text-neutral-200">
+          Te enviei um link de acesso para{" "}
+          <span className="font-semibold">
+            {lastSentEmail ?? "seu email"}
+          </span>
+          😊
+        </p>
+        <p className="text-xs text-neutral-500">
+          Abra o email no mesmo celular/computador e clique no botão para entrar.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin}>
-            <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
-              </Button>
-            </div>
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/auth/sign-up"
-                className="underline underline-offset-4"
+    <div className="space-y-4">
+      {/* Formulário principal */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <input
+          type="email"
+          required
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
+        {error && (
+          <p className="text-xs text-red-400 text-center">{error}</p>
+        )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-md bg-orange-500 py-2 text-sm font-semibold text-neutral-900 hover:bg-orange-400 disabled:opacity-60"
+        >
+          {loading ? "Enviando..." : "Entrar com email"}
+        </button>
+        <p className="text-[11px] text-neutral-500 text-center">
+          Nenhuma senha — só um link mágico enviado pro seu email.
+        </p>
+      </form>
+
+      {/* Lista de emails já usados no dispositivo */}
+      {savedEmails.length > 0 && (
+        <div className="pt-2 border-t border-neutral-800 space-y-2">
+          <p className="text-[11px] text-neutral-400 text-center uppercase tracking-[0.16em]">
+            Entrar com email já usado
+          </p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {savedEmails.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => handleQuickLogin(e)}
+                className="px-3 py-1 rounded-full border border-neutral-700 bg-neutral-900 text-[11px] text-neutral-200 hover:border-orange-400 hover:text-orange-300"
+                disabled={loading}
               >
-                Sign up
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+                {e}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

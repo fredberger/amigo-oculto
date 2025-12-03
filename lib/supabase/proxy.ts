@@ -7,6 +7,11 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  // Skip authentication for API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return supabaseResponse;
+  }
+
   // If the env vars are not set, skip proxy check. You can remove this
   // once you setup the project.
   if (!hasEnvVars) {
