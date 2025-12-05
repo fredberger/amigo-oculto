@@ -28,8 +28,8 @@ type Stage = "idle" | "spinning" | "result";
 /** Configs de animação */
 const CARD_WIDTH = 97;          // largura aproximada de cada card (px)
 const VISIBLE_CARDS = 3;        // quantos cards aparecem mais ou menos na tela
-const SPEED_PX_PER_SEC = 144;   // velocidade alvo (~130px/s)
-const DURATION = 30;      // duração total da animação (12s)
+const SPEED_PX_PER_SEC = 162;   // velocidade alvo (~162px/s)
+const DURATION = 25;      // duração total da animação (25s)
 
 // distância total = velocidade * tempo
 const DISTANCE_PX = SPEED_PX_PER_SEC * DURATION;
@@ -188,8 +188,8 @@ export function DrawReveal({ participant, receiver, participants }: Props) {
                         className="flex gap-3"
                         style={{
                             transform: isSpinning
-                                ? `tranneutralX(-${DISTANCE_PX}px)`
-                                : "tranneutralX(0)",
+                                ? `translateX(-${DISTANCE_PX}px)`
+                                : "translateX(0)",
                             transition: isSpinning
                                 ? `transform ${DURATION * 1000}ms cubic-bezier(0.3, 0.7, 0.6, 1)`
                                 : "none",
